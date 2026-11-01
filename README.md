@@ -1,95 +1,174 @@
-# BLOXORZ · Solver Lab
+# BLOXORZ SOLVER
 
-Đồ án CSC14003 — game Python/FastAPI với GUI Three.js chạy offline.
-**BFS, DFS, UCS, A\* và hai heuristic đều là stub có chủ đích.** Không có search algorithm trong game, test hay benchmark. Nhóm tự viết phần thuật toán và báo cáo.
+Đồ án môn học Nhập môn Trí tuệ Nhân tạo (CSC14003) — Trường Đại học Khoa học Tự nhiên, ĐHQG-HCM.
 
-Bản sửa hiện tại dùng **reference15: 15 màn đầu của Bloxorz tham chiếu**, không phải toàn bộ 33 màn. Layout, liên kết switch/bridge và góc chiếu đã đối chiếu nguồn gốc; texture procedural và UI đồ án là phần tái tạo. Không tuyên bố giống 100% về pixel, âm thanh hoặc thời gian. Xem [đối chiếu](docs/FIDELITY.md), [15 màn](docs/LEVELS.md), [kiểm chứng](docs/VERIFICATION.md).
+Ứng dụng mô phỏng trò chơi Bloxorz (15 màn chơi tham chiếu) với giao diện web 3D Three.js chạy offline, tích hợp các thuật toán tìm kiếm không gian trạng thái: BFS, DFS, UCS và A*.
 
-## Chạy ngay
+---
 
-Mở terminal **trong thư mục `Source/`**, Python 3.10 trở lên:
+## 1. Cài đặt và Khởi chạy
+
+### Yêu cầu hệ thống
+- Python 3.10 trở lên.
+- Trình duyệt web hỗ trợ WebGL (Chrome, Edge, Firefox, Brave...).
+
+### Khởi chạy
+
+Mở terminal tại thư mục `Source/`:
 
 ```sh
+# Khởi tạo và kích hoạt môi trường ảo
+python -m venv .venv
+
+# Linux / macOS:
+source .venv/bin/activate
+# Windows PowerShell:
+.venv\Scripts\Activate.ps1
+# Windows Command Prompt:
+.venv\Scripts\activate.bat
+
+# Cài đặt thư viện phụ thuộc
 pip install -r requirements.txt
+
+# Chạy ứng dụng
 python main.py
 ```
 
-Trình duyệt tự mở tại http://127.0.0.1:8000. Cần mạng để cài Python dependencies lần đầu; sau đó game, texture và JS đều chạy offline, không cần Node hay bundler. Nếu trình duyệt không tự mở, truy cập URL trên. Có thể dùng `python -m pip` thay cho `pip` khi máy có nhiều Python.
+Trình duyệt sẽ tự động mở tại địa chỉ `http://127.0.0.1:8000`. Game và các thư viện JavaScript chạy hoàn toàn offline sau khi cài xong package Python, không cần Node.js hay bundler.
 
+Tùy chọn dòng lệnh:
 ```sh
-python main.py --no-browser --port 8001
+# Đổi cổng nếu cổng 8000 bị bận
+python main.py --port 8080
+
 ```
 
-Khuyến nghị môi trường riêng: `python -m venv .venv`; Ubuntu/macOS: `source .venv/bin/activate`; Windows PowerShell: `.venv\Scripts\Activate.ps1`. Hai lệnh cài/chạy ở trên không đổi.
+---
 
-## Điều khiển
+## 2. Điều khiển trong game
 
-| Phím / nút | Tác dụng |
+| Phím / Thao tác | Tác dụng |
 |---|---|
-| ↑ ↓ ← → / W A S D | Lăn block / di chuyển cube đang chọn |
-| Space / Swap cube | Đổi cube khi split, tính 1 action |
-| R / Restart | Chơi lại màn; hủy animation đang chạy |
-| U / Backspace / Undo | Lùi một action, khôi phục cả bridge và split |
-| Esc / Level Select | Chọn màn |
-| ? | Chú giải tile và cơ chế |
-| D-pad / vuốt | Điều khiển bằng chuột hoặc cảm ứng |
-| Sound | WebAudio, mặc định tắt |
+| ↑ ↓ ← → hoặc W A S D | Lăn khối hộp / di chuyển khối đang chọn khi split |
+| Space | Đổi khối điều khiển khi split (tính 1 bước đi) |
+| U hoặc Backspace | Lùi lại một bước đi (Undo) |
+| R | Chơi lại màn hiện tại (Restart) |
+| Esc | Mở danh sách chọn màn (Level Select) |
+| ? hoặc nút Help | Xem bảng chú giải các loại ô cờ và cơ chế |
+| Kéo chuột trái | Xoay góc nhìn camera 3D quanh sa bàn |
+| Cuộn chuột | Phóng to / thu nhỏ góc nhìn |
 
-Thua tự chơi lại; thắng tự sang màn kế. Qua màn 15 trở về menu. Progress được lưu bằng localStorage; game vẫn hoạt động nếu trình duyệt chặn storage. `?unlock=all` hoặc nút **Unlock all** mở mọi màn để chấm/video.
 
-Solve chưa được cài sẽ hiển thị thông báo, **không** lấy `meta.solution` để giả làm kết quả tìm kiếm. Khi nhóm cài solver, panel hiện Time, Memory, Expanded Nodes, Length, Cost; replay có Pause/Play, Step, Speed và Stop. Replay tính từ state hiện tại, giữ nguyên bridge mask; input tay bị khóa.
+---
 
-## Cấu trúc
+## 3. Thuật toán tìm kiếm
+
+Hệ thống đã cài đặt đầy đủ các thuật toán tìm kiếm trong thư mục `solvers/`:
+
+- **BFS (Breadth-First Search)** (`solvers/bfs.py`): Tìm đường đi có số bước ít nhất, tối ưu với mô hình chi phí unit.
+- **DFS (Depth-First Search)** (`solvers/dfs.py`): Tìm kiếm theo chiều sâu.
+- **UCS (Uniform Cost Search)** (`solvers/ucs.py`): Mở rộng nút theo chi phí thực tế g(n), đảm bảo tối ưu chi phí với mọi mô hình trọng số.
+- **A\* Search** (`solvers/astar.py`): Tìm kiếm theo hàm đánh giá f(n) = g(n) + h(n), kết hợp thông tin chi phí và hàm đánh giá heuristic.
+
+### Hàm Heuristic cho A* (`solvers/heuristics.py`)
+
+- **center (`h_center`)**: Khoảng cách Manhattan từ tâm hình học của khối hộp đến ô đích chia cho 1.5.
+- **relaxed (`h_relaxed`)**: Khoảng cách Manhattan nhỏ nhất từ một trong các khối con đến ô đích chia cho 2.0.
+
+Cả hai hàm đều thỏa điều kiện chấp nhận được (admissible), đảm bảo tính tối ưu của nghiệm tìm được bởi A*.
+
+### Mô hình chi phí (Cost models)
+
+- **unit**: Chi phí mỗi bước di chuyển là 1.0.
+- **risk**: Chi phí bước đi tăng lên 2.0 khi khối hộp ở trạng thái nằm trên ô kính mỏng (fragile), phản ánh rủi ro vị trí.
+
+---
+
+## 4. Chạy Benchmark và Đánh giá hiệu năng
+
+Hệ thống cung cấp công cụ đo đạc độc lập bằng subprocess và `tracemalloc` để đo thời gian thực thi và lượng bộ nhớ tiêu thụ đỉnh:
+
+```sh
+# Chạy benchmark cả 4 thuật toán trên 15 màn, lặp lại 3 lần lấy trung vị:
+python bench/run_bench.py --algos bfs dfs ucs astar --repeat 3 --timeout 30 --cost-model risk --out bench/results
+
+# Chạy so sánh UCS và A* trên các màn chỉ định:
+python bench/run_bench.py --algos ucs astar:center astar:relaxed --levels 1-5 10-15 --repeat 3 --out bench/results
+
+# Vẽ biểu đồ kết quả:
+python bench/plots.py bench/results/results.csv --out bench/results
+```
+
+Kết quả xuất ra tại `bench/results/`:
+- `results.csv`: Bảng dữ liệu số liệu đo đạc chi tiết.
+- `summary.md`: Tóm tắt kết quả theo định dạng bảng Markdown.
+- `environment.json`: Thông tin phần cứng và môi trường chạy.
+- Các biểu đồ PNG (240 DPI): thời gian tìm kiếm (`search_time_s.png`), bộ nhớ RAM đỉnh (`peak_memory_kb.png`), số node mở rộng (`expanded_nodes.png`) và độ dài đường đi (`solution_length.png`).
+
+---
+
+## 5. Cấu trúc thư mục
 
 ```text
-StudentID1_StudentID2/
-  Source/
-    main.py, requirements.txt, pyproject.toml, README.md
-    core/       state, loader, rules, tile metadata, cost
-    solvers/    contracts, process runner, student stubs
-    api/        FastAPI requests and session orchestration
-    web/        ES modules, procedural 3D, local vendor JS
-    levels/     15 validated JSON levels
-    tests/      rules, geometry oracle, API, solver contracts, e2e
-    bench/      measurement harness and figures
-    docs/       rules, format, decisions, API, handoff, verification
-  Report.pdf    nhóm tự tạo, không có trong gói bàn giao
+Source/
+├── main.py              # Điểm khởi chạy chính của ứng dụng
+├── requirements.txt     # Danh sách thư viện phụ thuộc
+├── pyproject.toml       # Cấu hình công cụ kiểm tra mã nguồn
+├── README.md            # Tài liệu hướng dẫn
+├── core/                # Bộ luật game và mô hình hóa trạng thái
+│   ├── constants.py     # Định nghĩa Action, Orientation, Status
+│   ├── costs.py         # Hàm tính chi phí bước đi (unit, risk)
+│   ├── level.py         # Đọc và quản lý dữ liệu màn chơi
+│   ├── rules.py         # Logic di chuyển, va chạm, công tắc, điều kiện thắng/thua
+│   ├── state.py         # Cấu trúc trạng thái State
+│   └── tiles.py         # Định nghĩa các loại ô cờ và công tắc
+├── solvers/             # Các thuật toán tìm kiếm
+│   ├── base.py          # Lớp Problem và SearchResult
+│   ├── bfs.py           # Thuật toán BFS
+│   ├── dfs.py           # Thuật toán DFS
+│   ├── ucs.py           # Thuật toán UCS
+│   ├── astar.py         # Thuật toán A*
+│   ├── heuristics.py    # Các hàm heuristic (center, relaxed)
+│   └── runner.py        # Module thực thi thuật toán trong subprocess riêng
+├── api/                 # Backend FastAPI
+│   ├── server.py        # Xử lý session game và API giải tự động
+│   └── schemas.py       # Pydantic schemas cho API
+├── levels/              # Dữ liệu JSON 15 màn chơi chuẩn Bloxorz
+├── bench/               # Công cụ benchmark và vẽ biểu đồ
+│   ├── run_bench.py     # Script chạy benchmark tự động
+│   ├── plots.py         # Script vẽ biểu đồ từ file CSV
+│   └── results/         # Thư mục lưu kết quả đo đạc
+└── web/                 # Giao diện web Three.js
+    ├── index.html       # Giao diện chính
+    ├── main.js          # Khởi tạo giao diện
+    ├── GameController.js# Quản lý sự kiện và vòng đời game
+    ├── css/             # Bảng phong cách giao diện
+    ├── scene/           # Module Three.js (dựng hình 3D, animation, camera)
+    └── ui/              # Bảng điều khiển và thanh trạng thái
 ```
 
-Đổi tên thư mục ngoài thành MSSV thật của nhóm trước khi nộp. Các lớp phụ thuộc theo hướng web → API → solver → core → dữ liệu JSON; core không import API/solver/GUI.
+---
 
-## Test và kiểm tra code
+## 6. Thông tin đồ án
 
-```sh
-python -m pytest -m "not e2e" -q
-python -m mypy --strict core/
-python -m ruff check .
-python -m playwright install chromium
-python -m pytest -m e2e -q
-python -m pytest -q
-```
+- Môn học: Nhập môn Trí tuệ Nhân tạo (CSC14003)
+- Khoa Công nghệ Thông tin — Trường Đại học Khoa học Tự nhiên, ĐHQG-HCM
+- Sinh viên thực hiện:
+  - Họ và tên: Phạm Trường Quốc Huy
+  - MSSV: 25122071
 
-E2E tự mở server tại port trống, chạy Chromium headless rồi đóng cả hai. Tự skip khi không có trình duyệt. Trên Linux thiếu thư viện hệ thống, dùng hướng dẫn của Playwright (`python -m playwright install --with-deps chromium`, có thể cần quyền quản trị). `BLOXORZ_BROWSER` cho phép dùng đường dẫn Chromium khác. Test solver skip khi gặp `NotImplementedError`; lỗi khác không được che thành skip. `tests/fake_solver.py` chỉ replay chuỗi cố định để kiểm tra plumbing, không phải solver và không được đăng ký ở production.
+  - Họ và tên: Trương Tiến Dương
+  - MSSV: 25122064
 
-Chế độ `?debug=1&unlock=all`: overlay state/FPS, tọa độ tile, kiểm tra pose, `window.__bloxorz`. Hook debug chỉ tồn tại với `debug=1`. `holdTerminal` là hook cho e2e để quan sát WON/LOST trước khi chuyển màn tự động.
+  - Họ và tên: Huỳnh Hoàng Nguyên
+  - MSSV: 25122081
 
-## Benchmark
 
-```sh
-python bench/run_bench.py --algos bfs dfs ucs astar --groups 1 2 3 4 --repeat 3 --timeout 30 --cost-model risk --out bench/results
-python bench/run_bench.py --algos ucs astar:center --levels 1-4 7 10-15 --cost-model unit --repeat 3
-python bench/plots.py bench/results/results.csv
-```
+  - Họ và tên: Nguyễn Long Thiên
+  - MSSV: 25122089
 
-Kết quả: `results.csv`, `environment.json`, bốn PNG 240 dpi và `summary.md`. Không có solver thì CSV chỉ có header và biểu đồ ghi “No successful measurements”. Đây không phải số liệu thực nghiệm. Mỗi repeat chạy time và tracemalloc trong **hai process riêng**; timeout tính cả startup. Với solver ngẫu nhiên, nhóm phải quy định seed và báo cáo chính sách seed.
+  - Họ và tên: Lê Anh Tuấn
+  - MSSV: 25122092
 
-## Xử lý sự cố
 
-- Port 8000 bận: `python main.py --port 8001`.
-- Trang trắng/WebGL không khả dụng: bật hardware acceleration hoặc dùng trình duyệt hỗ trợ WebGL; lỗi context có nút Reload. Không mở trực tiếp `index.html` bằng `file://`.
-- Solver thông báo chưa cài: xem `docs/HANDOFF.md`; đây là chủ đích của đồ án.
-- Server restart/session hết hạn: thao tác tiếp theo tạo session mới và đưa về đầu màn. Khi server đang tắt, thông báo cho phép nhấn Restart thử lại.
-- Windows multiprocessing: giữ guard `if __name__ == '__main__'` của entry point; module solver phải import được bằng tên module.
-- Không thấy metrics/controls trên điện thoại: cuộn xuống dưới board.
 
-Đọc `docs/VERIFICATION.md` để phân biệt phần đã chạy thực tế và phần cần nhóm xác nhận trên máy nộp bài.
